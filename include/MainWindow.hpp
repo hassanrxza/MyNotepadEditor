@@ -5,6 +5,7 @@
 #include <QString>
 #include <QVector>
 #include <QPair>
+#include <QPushButton>
 
 class QVBoxLayout;
 class QSyntaxStyle;
@@ -50,6 +51,9 @@ private:
     QComboBox* m_highlighterCombobox;
     QComboBox* m_completerCombobox;
     QComboBox* m_styleCombobox;
+    QPushButton* openFileButton;
+    QPushButton* saveFileButton;
+    QString currentFilePath;
 
     QCheckBox* m_readOnlyCheckBox;
     QCheckBox* m_wordWrapCheckBox;

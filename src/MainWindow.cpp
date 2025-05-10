@@ -22,6 +22,9 @@
 #include <QSpinBox>
 #include <QGroupBox>
 #include <QLabel>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
 
 MainWindow::MainWindow(QWidget* parent) :
     QMainWindow(parent),
@@ -139,6 +142,9 @@ void MainWindow::createWidgets()
     m_completerCombobox   = new QComboBox(setupGroup);
     m_styleCombobox       = new QComboBox(setupGroup);
 
+    openFileButton = new QPushButton("Open File", setupGroup);
+    saveFileButton = new QPushButton("Save File", setupGroup);
+
     m_readOnlyCheckBox           = new QCheckBox("Read Only", setupGroup);
     m_wordWrapCheckBox           = new QCheckBox("Word Wrap", setupGroup);
     m_parenthesesEnabledCheckbox = new QCheckBox("Auto Parentheses", setupGroup);
@@ -148,6 +154,8 @@ void MainWindow::createWidgets()
 
 
     // Adding widgets
+    m_setupLayout->addWidget(openFileButton);
+    m_setupLayout->addWidget(saveFileButton);
     m_setupLayout->addWidget(new QLabel(tr("Code sample"), setupGroup));
     m_setupLayout->addWidget(m_codeSampleCombobox);
     m_setupLayout->addWidget(new QLabel(tr("Completer"), setupGroup));
@@ -274,6 +282,42 @@ void MainWindow::performConnections()
             }
         }
     );
+
+    
+    connect(openFileButton, &QPushButton::clicked, this, [this]() {
+        QString fileName = QFileDialog::getOpenFileName(this, tr("Open File"), QString(), tr("All Files (*)"));
+
+        if (!fileName.isEmpty()) {
+          QFile file(fileName);
+          if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+              QTextStream in(&file);
+              QString content = in.readAll();
+              file.close();
+              m_codeEditor->setPlainText(content);
+              currentFilePath = fileName;  // Save file path for saving later
+            }
+          }
+        });
+
+
+    connect(saveFileButton, &QPushButton::clicked, this, [this]() {
+        QString fileName = currentFilePath;
+
+      // If no file was opened before, ask for file name
+        if (fileName.isEmpty()) {
+            fileName = QFileDialog::getSaveFileName(this, tr("Save File"), QString(), tr("All Files (*)"));
+        }
+
+        if (!fileName.isEmpty()) {
+          QFile file(fileName);
+          if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+              QTextStream out(&file);
+              out << m_codeEditor->toPlainText();
+              file.close();
+              currentFilePath = fileName;  // Remember for next save
+          }
+        }
+      });
 
     connect(
         m_parenthesesEnabledCheckbox,
