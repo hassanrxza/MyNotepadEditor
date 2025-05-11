@@ -6,6 +6,17 @@
 #include <QVector>
 #include <QPair>
 #include <QPushButton>
+#include <QDockWidget>
+#include <QTextEdit>
+#include <QLineEdit>
+#include <QNetworkAccessManager>
+#include <QVBoxLayout>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QNetworkReply>
+#include <QNetworkReply>
+#include <QHBoxLayout>
 
 class QVBoxLayout;
 class QSyntaxStyle;
@@ -45,6 +56,8 @@ private:
 
     void performConnections();
 
+    void sendRequestWithRetry(QNetworkRequest request, QByteArray data);
+
     QVBoxLayout* m_setupLayout;
 
     QComboBox* m_codeSampleCombobox;
@@ -68,5 +81,16 @@ private:
     QVector<QPair<QString, QCompleter*>> m_completers;
     QVector<QPair<QString, QStyleSyntaxHighlighter*>> m_highlighters;
     QVector<QPair<QString, QSyntaxStyle*>> m_styles;
+
+    // ChatGPT integration
+    QDockWidget* chatDockWidget;
+    QWidget* chatWidget;
+    QVBoxLayout* chatLayout;
+    QTextEdit* chatDisplay;
+    QLineEdit* chatInput;
+    QPushButton* sendChatButton;
+    QNetworkAccessManager* networkManager;
+    QString openaiApiKey;
+    QPushButton* toggleChatButton;
 };
 
