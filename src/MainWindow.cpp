@@ -25,6 +25,8 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QTextStream>
+#include <QTimer>
+
 
 MainWindow::MainWindow(QWidget* parent) :
     QMainWindow(parent),
@@ -42,8 +44,10 @@ MainWindow::MainWindow(QWidget* parent) :
     m_codeEditor(nullptr),
     m_completers(),
     m_highlighters(),
-    m_styles()
+    m_styles(),
+    networkManager(new QNetworkAccessManager(this))
 {
+    openaiApiKey = "your_key";
     initData();
     createWidgets();
     setupWidgets();
@@ -152,10 +156,22 @@ void MainWindow::createWidgets()
     m_tabReplaceNumberSpinbox    = new QSpinBox(setupGroup);
     m_autoIndentationCheckbox    = new QCheckBox("Auto Indentation", setupGroup);
 
+    // ChatGPT window widgets 
+    chatDockWidget = new QDockWidget("ChatGPT", this);
+    chatWidget = new QWidget(chatDockWidget);
+    chatLayout = new QVBoxLayout(chatWidget);
+    toggleChatButton = new QPushButton("Toggle Chat", this); // Toggle the sidebar 
+
+    chatDisplay = new QTextEdit(chatWidget);
+    chatDisplay->setReadOnly(true);
+
+    chatInput = new QLineEdit(chatWidget);
+    sendChatButton = new QPushButton("Send", chatWidget);
 
     // Adding widgets
     m_setupLayout->addWidget(openFileButton);
     m_setupLayout->addWidget(saveFileButton);
+    m_setupLayout->addWidget(toggleChatButton);
     m_setupLayout->addWidget(new QLabel(tr("Code sample"), setupGroup));
     m_setupLayout->addWidget(m_codeSampleCombobox);
     m_setupLayout->addWidget(new QLabel(tr("Completer"), setupGroup));
@@ -171,6 +187,14 @@ void MainWindow::createWidgets()
     m_setupLayout->addWidget(m_tabReplaceNumberSpinbox);
     m_setupLayout->addWidget(m_autoIndentationCheckbox);
     m_setupLayout->addSpacerItem(new QSpacerItem(1, 2, QSizePolicy::Minimum, QSizePolicy::Expanding));
+
+    chatLayout->addWidget(chatDisplay);
+    chatLayout->addWidget(chatInput);
+    chatLayout->addWidget(sendChatButton);
+    
+    chatWidget->setLayout(chatLayout);
+    chatDockWidget->setWidget(chatWidget);
+    addDockWidget(Qt::RightDockWidgetArea, chatDockWidget);
 }
 
 void MainWindow::setupWidgets()
@@ -346,4 +370,60 @@ void MainWindow::performConnections()
         [this](int state)
         { m_codeEditor->setAutoIndentation(state != 0); }
     );
+    
+     connect(sendChatButton, &QPushButton::clicked, this, [this]() {
+        QString userMessage = chatInput->text().trimmed();
+        if (userMessage.isEmpty()) return;
+
+        chatDisplay->append("<b>You:</b> " + userMessage);
+        chatInput->clear();
+
+        QJsonObject messageObj;
+        messageObj["role"] = "user";
+        messageObj["content"] = userMessage;
+
+        QJsonArray messagesArray;
+        messagesArray.append(messageObj);
+
+        QJsonObject payload;
+        payload["model"] = "gpt-3.5-turbo";
+        payload["messages"] = messagesArray;
+
+        QJsonDocument doc(payload);
+        QByteArray data = doc.toJson();
+
+        QNetworkRequest request(QUrl("https://api.openai.com/v1/chat/completions"));
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        request.setRawHeader("Authorization", ("Bearer " + openaiApiKey).toUtf8());
+
+        QNetworkReply* reply = networkManager->post(request, data);
+
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            if (reply->error() != QNetworkReply::NoError) {
+                chatDisplay->append("<b>ChatGPT:</b> Error: " + reply->errorString());
+                reply->deleteLater();
+                return;
+            }
+
+            QByteArray responseData = reply->readAll();
+            QJsonDocument responseDoc = QJsonDocument::fromJson(responseData);
+            QJsonObject responseObj = responseDoc.object();
+
+            QJsonArray choices = responseObj["choices"].toArray();
+            if (!choices.isEmpty()) {
+                QJsonObject message = choices[0].toObject()["message"].toObject();
+                QString content = message["content"].toString();
+                chatDisplay->append("<b>ChatGPT:</b> " + content);
+            } else {
+                chatDisplay->append("<b>ChatGPT:</b> Unexpected response format.");
+            }
+
+            reply->deleteLater();
+        });
+    });
+
+    connect(toggleChatButton, &QPushButton::clicked, this, [this]() {
+      chatDockWidget->setVisible(!chatDockWidget->isVisible());
+    });
 }
+
